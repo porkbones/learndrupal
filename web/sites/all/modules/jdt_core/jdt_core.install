@@ -1,0 +1,85 @@
+<?php
+
+/**
+ * Check to see if the modules are actually enabled.
+ *
+ * @param array $modules
+ *   An array of module machine names to check for being enabled.
+ *
+ * @return string
+ *   Messsage indicating the modules are enabled
+ *
+ * @throws DrupalUpdateException
+ *   Calls the update a failure, preventing it from registering the update_N.
+ */
+function mymodule_check_modules_enabled($modules = array()) {
+  $modules = (array) $modules;
+  $return = TRUE;
+  $enabled_modules = array();
+  $t = get_t();
+  // Check to see if each module is enabled.
+  foreach ($modules as $module) {
+    if (!module_exists($module)) {
+      // This module is not enabled, throw an exception.
+      throw new DrupalUpdateException($t('The module @module was supposed to be enabled by this update, but was not. Please investigate the problem and re-run this update.',array('@module' => $module)));
+    }
+  }
+  $module_list = implode(', ', $modules);
+  return $t('The modules @enabled were enabled successfully.', array('@enabled' => $module_list));
+}
+
+/**
+ * Enables an array of modules and checks to make sure they were truly enabled.
+ *
+ * @param array $modules
+ *   An array of module machine names to check for being enabled.
+ *
+ * @return string
+ *   Messsage indicating the modules are enabled.
+ *
+ * @throws DrupalUpdateException
+ *   Calls the update a failure, preventing it from registering the update_N.
+ */
+function mymodule_module_enable($modules = array()) {
+  $modules = (array) $modules;
+  $enable_good = module_enable($modules);
+  if (!$enable_good) {
+    // Enable command failed.
+    $module_list = implode(', ', $modules);
+    $t = get_t();
+    throw new DrupalUpdateException($t('The requested modules @modules to be enabled by this update, were not, because one of them does not exist in the codebase. Please investigate the problem and re-run this update.',array('@modules' => $module_list)));
+  }
+  // There are cases where $enable_good is TRUE but the module may not have enabled, so double check.
+  $success = mymodule_check_modules_enabled($modules);
+
+  return $success;
+}
+
+/**
+ * Implements hook_update().
+ *
+ * Enables 11 modules, and disables 3
+ *
+ */
+function jdt_core_update_7007() {
+
+	$modules = array(
+		'views', 
+		'features',
+		'strongarm',
+		'context',
+#		'pathauto',
+		'diff',
+		'libraries',
+		'jquery_update',
+		'devel',
+		'module_filter',
+		'admin_menu'); // Array of module names
+	$enable_dependencies = TRUE; // Whether or not to enable dependant modules
+
+	foreach ($modules as $module) {
+		mymodule_module_enable(array($module), $enable_dependencies);
+	}
+
+	module_disable(array('toolbar', 'shortcut', 'overlay'));
+} 
